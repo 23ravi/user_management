@@ -2,6 +2,7 @@ from fastapi import HTTPException, APIRouter
 from uuid import uuid4
 from app.schema.user import User
 import boto3
+from botocore.exceptions import ClientError
 from uuid import uuid4
 
 
@@ -9,7 +10,7 @@ from uuid import uuid4
 db = {}
 api_router = APIRouter()
 # Connect to DynamoDB
-dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+dynamodb = boto3.resource('dynamodb', region_name='ap-south-1')
 table = dynamodb.Table('Users')
 
 @api_router.post("", status_code=201)
@@ -25,22 +26,40 @@ async def create_user(user: User):
 
 
 @api_router.get("/{user_id}")
-async def get_user(user_id: str):
-    user = db.get(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
+def get_user(user_id: str):
+    try:
+        response = table.get_item(Key={"id": user_id})
+        if "Item" not in response:
+            raise HTTPException(status_code=404, detail="User not found")
+        return response["Item"]
+    except ClientError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.put("/{user_id}")
-async def update_user(user_id: str, user: User):
-    if user_id not in db:
-        raise HTTPException(status_code=404, detail="User not found")
-    db[user_id].update(user.dict())
-    return {"message": "User updated successfully"}
+def update_user(user_id: str, user: User):
+    try:
+        table.update_item(
+            Key={"id": user_id},
+            UpdateExpression="set firstname=:f, lastname=:l, dob=:d, address=:a, gender=:g, email=:e, phone_number=:p",
+            ExpressionAttributeValues={
+                ":f": user.firstname,
+                ":l": user.lastname,
+                ":d": user.dob,
+                ":a": user.address,
+                ":g": user.gender,
+                ":e": user.email,
+                ":p": user.phone_number,
+            }
+        )
+        return {"message": "User updated successfully"}
+    except ClientError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @api_router.delete("/{user_id}")
-async def delete_user(user_id: str):
-    if user_id not in db:
-        raise HTTPException(status_code=404, detail="User not found")
-    del db[user_id]
-    return {"message": "User deleted successfully"}
+def delete_user(user_id: str):
+    try:
+        table.delete_item(Key={"id": user_id})
+        return {"message": "User deleted successfully"}
+    except ClientError as e:
+        raise HTTPException(status_code=500, detail=str(e))
