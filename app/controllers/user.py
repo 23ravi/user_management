@@ -26,9 +26,9 @@ async def create_user(user: User):
 
 
 @api_router.get("/{user_id}")
-def get_user(user_id: str):
+async def get_user(user_id: str):
     try:
-        response = table.get_item(Key={"id": user_id})
+        response = table.get_item(Key={"user_id": user_id})
         if "Item" not in response:
             raise HTTPException(status_code=404, detail="User not found")
         return response["Item"]
@@ -36,10 +36,10 @@ def get_user(user_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.put("/{user_id}")
-def update_user(user_id: str, user: User):
+async def update_user(user_id: str, user: User):
     try:
         table.update_item(
-            Key={"id": user_id},
+            Key={"user_id": user_id},
             UpdateExpression="set firstname=:f, lastname=:l, dob=:d, address=:a, gender=:g, email=:e, phone_number=:p",
             ExpressionAttributeValues={
                 ":f": user.firstname,
@@ -57,9 +57,9 @@ def update_user(user_id: str, user: User):
 
 
 @api_router.delete("/{user_id}")
-def delete_user(user_id: str):
+async def delete_user(user_id: str):
     try:
-        table.delete_item(Key={"id": user_id})
+        table.delete_item(Key={"user_id": user_id})
         return {"message": "User deleted successfully"}
     except ClientError as e:
         raise HTTPException(status_code=500, detail=str(e))
